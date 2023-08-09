@@ -18,6 +18,7 @@ import datetime
 import hashlib
 import hmac
 import time
+import logging
 from google.cloud import secretmanager
 from flask import Flask, redirect, request, session, make_response, abort
 
@@ -26,7 +27,6 @@ sm_client = secretmanager.SecretManagerServiceClient()
 project_id = os.environ.get("PROJECT_ID")
 cdn_sign_key_name = os.environ.get("CDN_SIGN_KEY")
 web_url = os.environ.get("WEB_URL")
-gcs_path = os.environ.get("GCS_PATH")
 
 app = Flask(__name__)
 app.secret_key = os.urandom(12)
@@ -44,11 +44,12 @@ def home():
                              datetime.datetime.utcfromtimestamp(expire_time))
 
         resp = make_response(redirect(url.replace('http:', 'https:')))
+        
         resp.set_cookie('Cloud-CDN-Cookie', cookie,
-                        expires=expire_time, path=gcs_path)
+                        expires=expire_time)
         return resp
     else:
-        return 'File not found! You have already logged in. <a href="/logout">Logout</a>'
+        return redirect(web_url)
 
 
 @app.route("/logout")
@@ -57,8 +58,8 @@ def logout():
     # is still logged into Google Accounts.
     # This just gives user a chance to switch an account. 
     session.clear()
-    resp = make_response(redirect('/?gcp-iap-mode=CLEAR_LOGIN_COOKIE'))
-    resp.set_cookie('Cloud-CDN-Cookie', '', expires=0, path=gcs_path)
+    resp = make_response(redirect('/'))
+    resp.set_cookie('Cloud-CDN-Cookie', '', expires=0)
     return resp
 
 
